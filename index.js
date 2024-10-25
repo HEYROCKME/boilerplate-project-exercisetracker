@@ -69,6 +69,28 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/views/index.html')
 });
 
+
+// Middleware
+
+const getUsername = async (req, res, next) => {
+
+
+    try {
+      let userQuery = await User.findOne({_id: req.params._id})
+      req.username = userQuery.username  
+      console.log("User Name", userQuery.username ) 
+      next()
+    }
+    catch (err) {
+      next("ERROR", err)
+    }
+}
+  
+ 
+
+
+
+
 /* API Requests */
 // USERS - Create and Post user
 app.route('/api/users')
@@ -87,21 +109,14 @@ app.route('/api/users')
     }
   })
 
+
+
+
   // POST EXERCISE
-  app.route('/api/users/:_id/exercises')
-  .post(async (req, res, next)=> {
-      try {
-        let userQuery = await User.findOne({_id: req.params._id})
-        req.username = userQuery.username
-        
-        next()
-      }
-      catch (err) {
-        next("ERROR", err)
-      }
-      
-    }, async (req, res) => {
-      
+app.route('/api/users/:_id/exercises')
+  .post( (req, res, next) => 
+    getUsername(req, res, next),
+    async (req, res) => {     
       try {
         let newExercise = new Exercise(
           {
@@ -109,7 +124,6 @@ app.route('/api/users')
             description: req.body.description,
             duration: req.body.duration,
             date: !isNaN(new Date(req.body.date)) ? new Date(req.body.date) : new Date()
-            
           })
           await newExercise.save()
           res.json({
@@ -119,44 +133,39 @@ app.route('/api/users')
             duration: newExercise.duration,
             date: new Date(newExercise.date).toDateString()
           })
-
       } catch(err) {
         console.log("m2 err", err);
-        
       }
-    })
-
-  
-  
-
-
-
-
-  const excercise = new Exercise({
-    username: "fcc_test",
-    description: "test",
-    duration: 59,
-    date: new Date("Mon Jan 01 1990").toDateString(),
   })
 
-  // excercise.save().then(() => console.log('phew'));
-  
+app.get('/api/users/:_id/logs',(req, res, next) => 
+       getUsername(req, res, next),
+    async (req, res) => {
+      let log = await Exercise.find({username: req.username}, 'description duration date')
+      editedLog = log.map((item ) => {
+        return {
+          description: item.description,
+          duration: item.duration,
+          date: new Date(item.date).toDateString()
+        }
+      })
+      const result =
+      {
+        username: req.username,
+        _id: req.params._id,
+        count: [...log].length,
+        log: [...editedLog]
+        
+        
+      }
+      
+      console.log("result",result)
+      res.json(result)
+    }
+  )
 
 
 
-
-
-
-app.get('/exercises/', async (req, res, next) =>{
-  try {
-    const SucessResult = await Exercise.find().exec()
-    console.log(SucessResult)
-    res.json(SucessResult)
-  
-  } catch(err) {
-    return next(err)
-  }
- })
 
 
 
