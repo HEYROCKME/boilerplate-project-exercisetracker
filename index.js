@@ -48,18 +48,14 @@ const ExerciseModelSchema = new Schema(
 const LogSchema = new Schema({
     description: String,
     duration: Number,
-    date: Date,
+    date: String,
 })
-const LogModelSchema = new Schema({
-    username: String,
-    count: Number,
-    log: [LogSchema]
-})
+
 
 /** ** MODELS */
 const User = mongoose.model('User', UserModelSchema)
 const Exercise = mongoose.model('Exercise', ExerciseModelSchema)
-const Log = mongoose.model('Log', LogModelSchema)
+
 
 
 app.use(bodyParser.urlencoded({extended: false}))
@@ -116,14 +112,15 @@ app.route('/api/users')
 app.route('/api/users/:_id/exercises')
   .post( (req, res, next) => 
     getUsername(req, res, next),
-    async (req, res) => {     
+    async (req, res) => {    
+      console.log("REQUEST________:", req.body)
       try {
         let newExercise = new Exercise(
           {
             username: req.username,
             description: req.body.description,
             duration: req.body.duration,
-            date: !isNaN(new Date(req.body.date)) ? new Date(req.body.date) : new Date()
+            date: !isNaN(new Date(req.body.date)) ? new Date(req.body.date).toISOString() : new Date().toISOString()
           })
           await newExercise.save()
           res.json({
@@ -139,30 +136,47 @@ app.route('/api/users/:_id/exercises')
   })
 
 app.get('/api/users/:_id/logs',(req, res, next) => 
-       getUsername(req, res, next),
-    async (req, res) => {
-      let log = await Exercise.find({username: req.username}, 'description duration date')
-      editedLog = log.map((item ) => {
-        return {
-          description: item.description,
-          duration: item.duration,
-          date: new Date(item.date).toDateString()
-        }
-      })
-      const result =
-      {
-        username: req.username,
-        _id: req.params._id,
-        count: [...log].length,
-        log: [...editedLog]
-        
-        
+  getUsername(req, res, next),
+
+  async (req, res) => {
+    // Query items
+    const {to, from, limit} = req.query
+    const username = req.username
+    
+    // FILTER
+    let filter = { username: username }  
+    let dateQuery = {}
+    from ? dateQuery["$gte"] = new Date(from) : null
+    to ? dateQuery["$lte"] = new Date(to): null
+    to || from ? filter.date = dateQuery : 0
+
+    let log = await Exercise
+      .find(
+        filter
+        )
+      .limit(limit)
+      .exec()
+    
+    editedLog = log.map((item ) => {
+      return {
+        description: item.description,
+        duration: item.duration,
+        date: new Date(item.date).toDateString()
       }
-      
-      console.log("result",result)
-      res.json(result)
+    })
+
+    const result =
+    {
+      username: req.username,
+      _id: req.params._id,
+      count: [...log].length,
+      log: [...editedLog] 
     }
-  )
+    
+    console.log("Result__________:",result)
+    res.json(result)
+  }
+)
 
 
 
